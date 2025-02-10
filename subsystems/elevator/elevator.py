@@ -2,11 +2,12 @@ from collections.abc import Callable
 
 from commands2 import Command, Subsystem
 from commands2.sysid import SysIdRoutine
-from phoenix6 import SignalLogger
+from phoenix6 import SignalLogger, StatusSignal, ampere
 from phoenix6.configs import TalonFXConfiguration
 from phoenix6.configs.config_groups import InvertedValue
 from phoenix6.controls import DutyCycleOut, Follower, VoltageOut
 from phoenix6.hardware import TalonFX
+from wpilib import SmartDashboard
 from wpilib.sysid import SysIdRoutineLog
 from wpimath import applyDeadband
 
@@ -42,7 +43,9 @@ class Elevator(Subsystem):
                 ),
             ),
             SysIdRoutine.Mechanism(
-                lambda output: self.left.set_control(self.voltageOut.with_output(output)),
+                lambda output: self.left.set_control(
+                    self.voltageOut.with_output(output)
+                ),
                 lambda log: None,
                 self,
             ),
@@ -68,6 +71,15 @@ class Elevator(Subsystem):
 
     def sys_id_quasistatic(self, direction: SysIdRoutine.Direction) -> Command:
         return self._sys_id_routine.quasistatic(direction)
-    
+
     def sys_id_dynamic(self, direction: SysIdRoutine.Direction) -> Command:
         return self._sys_id_routine.dynamic(direction)
+
+    def periodic(self) -> None:
+        """
+        Overridden to update dashboard.
+        """
+        current: StatusSignal[ampere] = self.left.get_torque_current()
+        SmartDashboard.putNumber("Elevator left amps", current.value())
+        current = self.right.get_torque_current()
+        SmartDashboard.putNumber("Elevator right amps", current.value())
